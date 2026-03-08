@@ -4,6 +4,7 @@ import cors from 'cors';
 
 import { analyzeRouter } from './routes/analyze';
 import { chatRouter } from './routes/chat';
+import { entitlementsRouter } from './routes/entitlements';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -13,6 +14,7 @@ app.use(express.json());
 
 app.use('/analyze', analyzeRouter);
 app.use('/chat', chatRouter);
+app.use('/entitlements', entitlementsRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
