@@ -7,9 +7,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 export const analyzeRouter = express.Router();
 
-analyzeRouter.post('/', upload.single('image'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'image is required' });
+analyzeRouter.post('/', upload.array('images', 3), async (req, res) => {
+  const files = req.files as Express.Multer.File[] | undefined;
+  if (!files?.length) {
+    return res.status(400).json({ error: 'at least one image is required' });
   }
 
   try {
@@ -24,7 +25,7 @@ analyzeRouter.post('/', upload.single('image'), async (req, res) => {
           ? (req.query.lang as string)
           : undefined;
 
-    const aiResponse = await analyzeImage(req.file.buffer, context, lang);
+    const aiResponse = await analyzeImage(files[0].buffer, context, lang);
     // Extra safety: validate the response again here.
     const validated = analyzeSchema.parse(aiResponse);
     return res.json(validated);
