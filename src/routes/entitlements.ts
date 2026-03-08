@@ -10,38 +10,46 @@ const ANONYMOUS_ID_HEADER = 'x-anonymous-id';
 export const entitlementsRouter = express.Router();
 
 /** GET /entitlements — returns entitlements for the anonymous id in header. No PII. */
-entitlementsRouter.get('/', (req, res) => {
+entitlementsRouter.get('/', async (req, res) => {
   const anonymousId = req.headers[ANONYMOUS_ID_HEADER] as string | undefined;
   if (!anonymousId || anonymousId.length < 10) {
     return res.status(400).json({ error: 'Missing or invalid X-Anonymous-Id header' });
   }
-  const e = getEntitlements(anonymousId);
-  return res.json({
-    hasPremium: e.hasPremium,
-    premiumExpiresAt: e.premiumExpiresAt,
-    hasCoffee: e.hasCoffee,
-    coffeeAdsFreeUntil: e.coffeeAdsFreeUntil,
-  });
+  try {
+    const e = await getEntitlements(anonymousId);
+    return res.json({
+      hasPremium: e.hasPremium,
+      premiumExpiresAt: e.premiumExpiresAt,
+      hasCoffee: e.hasCoffee,
+      coffeeAdsFreeUntil: e.coffeeAdsFreeUntil,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to get entitlements' });
+  }
 });
 
 /** POST /entitlements/coffee — record coffee purchase (7 days no ads). */
-entitlementsRouter.post('/coffee', (req, res) => {
+entitlementsRouter.post('/coffee', async (req, res) => {
   const anonymousId = req.headers[ANONYMOUS_ID_HEADER] as string | undefined;
   if (!anonymousId || anonymousId.length < 10) {
     return res.status(400).json({ error: 'Missing or invalid X-Anonymous-Id header' });
   }
-  setCoffeePurchased(anonymousId);
-  const e = getEntitlements(anonymousId);
-  return res.json({
-    hasPremium: e.hasPremium,
-    premiumExpiresAt: e.premiumExpiresAt,
-    hasCoffee: e.hasCoffee,
-    coffeeAdsFreeUntil: e.coffeeAdsFreeUntil,
-  });
+  try {
+    await setCoffeePurchased(anonymousId);
+    const e = await getEntitlements(anonymousId);
+    return res.json({
+      hasPremium: e.hasPremium,
+      premiumExpiresAt: e.premiumExpiresAt,
+      hasCoffee: e.hasCoffee,
+      coffeeAdsFreeUntil: e.coffeeAdsFreeUntil,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to record coffee purchase' });
+  }
 });
 
 /** POST /entitlements/premium — record premium purchase. Body: { expiresAt?: string } (ISO). */
-entitlementsRouter.post('/premium', (req, res) => {
+entitlementsRouter.post('/premium', async (req, res) => {
   const anonymousId = req.headers[ANONYMOUS_ID_HEADER] as string | undefined;
   if (!anonymousId || anonymousId.length < 10) {
     return res.status(400).json({ error: 'Missing or invalid X-Anonymous-Id header' });
@@ -50,12 +58,16 @@ entitlementsRouter.post('/premium', (req, res) => {
     typeof req.body?.expiresAt === 'string' && req.body.expiresAt
       ? req.body.expiresAt
       : null;
-  setPremiumPurchased(anonymousId, expiresAt);
-  const e = getEntitlements(anonymousId);
-  return res.json({
-    hasPremium: e.hasPremium,
-    premiumExpiresAt: e.premiumExpiresAt,
-    hasCoffee: e.hasCoffee,
-    coffeeAdsFreeUntil: e.coffeeAdsFreeUntil,
-  });
+  try {
+    await setPremiumPurchased(anonymousId, expiresAt);
+    const e = await getEntitlements(anonymousId);
+    return res.json({
+      hasPremium: e.hasPremium,
+      premiumExpiresAt: e.premiumExpiresAt,
+      hasCoffee: e.hasCoffee,
+      coffeeAdsFreeUntil: e.coffeeAdsFreeUntil,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to record premium purchase' });
+  }
 });

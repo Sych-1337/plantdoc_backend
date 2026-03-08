@@ -2,9 +2,12 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 
+import { initFirebase } from './services/firebase';
 import { analyzeRouter } from './routes/analyze';
 import { chatRouter } from './routes/chat';
 import { entitlementsRouter } from './routes/entitlements';
+
+initFirebase();
 
 const app = express();
 const port = process.env.PORT || 4000;
