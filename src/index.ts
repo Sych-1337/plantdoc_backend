@@ -6,6 +6,7 @@ import { initFirebase } from './services/firebase';
 import { analyzeRouter } from './routes/analyze';
 import { chatRouter } from './routes/chat';
 import { entitlementsRouter } from './routes/entitlements';
+import { usageRouter } from './routes/usage';
 
 initFirebase();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/analyze', analyzeRouter);
 app.use('/chat', chatRouter);
 app.use('/entitlements', entitlementsRouter);
+app.use('/usage', usageRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });

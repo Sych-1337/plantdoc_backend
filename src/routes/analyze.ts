@@ -1,13 +1,31 @@
 import express from 'express';
 import multer from 'multer';
 
-import { analyzeImage, analyzeSchema } from '../services/ai_client';
+import { consume } from '../store/usage';
+import { analyzeImages, analyzeSchema } from '../services/ai_client';
 
 const upload = multer({ storage: multer.memoryStorage() });
+const ANONYMOUS_ID_HEADER = 'x-anonymous-id';
+const MAX_IMAGES = 5;
 
 export const analyzeRouter = express.Router();
 
-analyzeRouter.post('/', upload.array('images', 3), async (req, res) => {
+analyzeRouter.post('/', upload.array('images', MAX_IMAGES), async (req, res) => {
+  const anonymousId = req.headers[ANONYMOUS_ID_HEADER] as string | undefined;
+  if (!anonymousId || anonymousId.length < 10) {
+    return res.status(400).json({ error: 'X-Anonymous-Id header is required for usage limits' });
+  }
+
+  const scanResult = await consume(anonymousId, 'scan');
+  if (!scanResult.allowed) {
+    return res.status(429).json({
+      error: 'Daily scan limit reached',
+      serverDate: scanResult.serverDate,
+      serverMonth: scanResult.serverMonth,
+      usage: scanResult.usage,
+    });
+  }
+
   const files = req.files as Express.Multer.File[] | undefined;
   if (!files?.length) {
     return res.status(400).json({ error: 'at least one image is required' });
@@ -25,10 +43,10 @@ analyzeRouter.post('/', upload.array('images', 3), async (req, res) => {
           ? (req.query.lang as string)
           : undefined;
 
-    const aiResponse = await analyzeImage(files[0].buffer, context, lang);
-    // Extra safety: validate the response again here.
+    const buffers = files.map((f) => f.buffer);
+    const aiResponse = await analyzeImages(buffers, context, lang);
     const validated = analyzeSchema.parse(aiResponse);
-    return res.json(validated);
+    return res.json({ ...validated, usage: scanResult.usage });
   } catch (error) {
     console.error('Error in /analyze', error);
 

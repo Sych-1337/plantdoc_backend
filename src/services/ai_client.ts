@@ -119,6 +119,82 @@ export async function analyzeImage(
   return parsed;
 }
 
+/** Analyze one or more plant images together (e.g. different angles). Uses first image for backward compatibility. */
+export async function analyzeImages(
+  imageBuffers: Buffer[],
+  context?: Record<string, unknown>,
+  lang?: string,
+): Promise<AnalyzeResponse> {
+  if (!imageBuffers.length) {
+    throw new Error('At least one image is required');
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not set');
+  }
+
+  const languageName = lang
+    ? LANGUAGE_NAMES[lang.toLowerCase()] ?? lang
+    : 'English';
+
+  const systemPrompt =
+    'You are a plant health assistant. Analyze the plant image(s) and return ONLY valid JSON matching the provided schema. ' +
+    'When multiple photos are provided, consider them as different angles/views of the same plant and give one unified diagnosis. ' +
+    'Diagnose common issues (overwatering, underwatering, nutrient deficiencies, pests, fungi, light issues). ' +
+    'If you are not confident, set all three diagnoses to an "Unknown / Needs more photos" variant and suggest what extra photos to take. ' +
+    'Never mention chemicals that are unsafe for home use. Prefer safe, conservative advice. ' +
+    `Write ALL text fields in the response (diagnoses name and shortReason, summary, immediateActions, treatmentPlan steps title/details/timeframe, safetyNotes, prevention) ONLY in ${languageName}. Do not use any other language.`;
+
+  const userPrompt = [
+    imageBuffers.length > 1
+      ? `Analyze these ${imageBuffers.length} plant photos (same plant, different angles/views). Use them together for a single diagnosis.`
+      : 'Analyze this plant photo. Use any additional context if provided.',
+    context ? `Context: ${JSON.stringify(context)}` : '',
+    '',
+    'Return ONLY JSON, no markdown, no comments. The JSON MUST match this TypeScript-like schema:',
+    '',
+    'type Diagnosis = { name: string; confidence: number; shortReason: string };',
+    'type TreatmentStep = { title: string; details: string; timeframe: string };',
+    'type AnalyzeResponse = {',
+    '  diagnoses: [Diagnosis, Diagnosis, Diagnosis];',
+    '  urgency: "low" | "medium" | "high";',
+    '  summary: string;',
+    '  immediateActions: string[]; // 3-6 bullet points',
+    '  treatmentPlan: {',
+    '    isLocked: boolean;',
+    '    steps: TreatmentStep[];',
+    '    safetyNotes: string[];',
+    '    prevention: string[];',
+    '  };',
+    '};',
+  ].join('\n');
+
+  const contentParts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+    { type: 'text', text: userPrompt },
+    ...imageBuffers.map((buf) => ({
+      type: 'image_url' as const,
+      image_url: { url: `data:image/jpeg;base64,${buf.toString('base64')}` },
+    })),
+  ];
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4.1-mini',
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: contentParts },
+    ],
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('Empty response from OpenAI');
+  }
+
+  const parsedRaw = JSON.parse(content);
+  const parsed = analyzeSchema.parse(parsedRaw);
+  return parsed;
+}
+
 export async function chatWithContext(
   messages: ChatMessage[],
   context?: Record<string, unknown>,

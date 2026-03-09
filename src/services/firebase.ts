@@ -41,3 +41,9 @@ export function entitlementsRef(anonymousId: string): ReturnType<Database['ref']
   if (!db) return null;
   return db.ref(`entitlements/${anonymousId}`);
 }
+
+/** Ref for one user's usage (server-date-based). Key by anonymousId. */
+export function usageRef(anonymousId: string): ReturnType<Database['ref']> | null {
+  if (!db) return null;
+  return db.ref(`usage/${anonymousId}`);
+}
