@@ -48,18 +48,14 @@ entitlementsRouter.post('/coffee', async (req, res) => {
   }
 });
 
-/** POST /entitlements/premium — record premium purchase. Body: { expiresAt?: string } (ISO). */
+/** POST /entitlements/premium — record premium purchase (adds 1 month from now or from existing expiry). */
 entitlementsRouter.post('/premium', async (req, res) => {
   const anonymousId = req.headers[ANONYMOUS_ID_HEADER] as string | undefined;
   if (!anonymousId || anonymousId.length < 10) {
     return res.status(400).json({ error: 'Missing or invalid X-Anonymous-Id header' });
   }
-  const expiresAt =
-    typeof req.body?.expiresAt === 'string' && req.body.expiresAt
-      ? req.body.expiresAt
-      : null;
   try {
-    await setPremiumPurchased(anonymousId, expiresAt);
+    await setPremiumPurchased(anonymousId);
     const e = await getEntitlements(anonymousId);
     return res.json({
       hasPremium: e.hasPremium,

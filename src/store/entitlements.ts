@@ -34,6 +34,22 @@ function normalize(e: Entitlements): Entitlements {
   };
 }
 
+function calculateNextPremiumExpiry(currentExpiresAt: string | null): string {
+  const now = new Date();
+  let base = now;
+
+  if (currentExpiresAt) {
+    const parsed = new Date(currentExpiresAt);
+    if (!isNaN(parsed.getTime()) && parsed > now) {
+      base = parsed;
+    }
+  }
+
+  const next = new Date(base.getTime());
+  next.setUTCMonth(next.getUTCMonth() + 1);
+  return next.toISOString();
+}
+
 export async function getEntitlements(anonymousId: string): Promise<Entitlements> {
   const ref = entitlementsRef(anonymousId);
   if (ref) {
@@ -81,27 +97,28 @@ export async function setCoffeePurchased(anonymousId: string): Promise<void> {
   });
 }
 
-export async function setPremiumPurchased(
-  anonymousId: string,
-  expiresAt: string | null = null,
-): Promise<void> {
+export async function setPremiumPurchased(anonymousId: string): Promise<void> {
   const ref = entitlementsRef(anonymousId);
   if (ref) {
     try {
       const snapshot = await ref.once('value');
       const current = snapshot.val() || {};
+      const currentExpiresAt =
+        typeof current.premiumExpiresAt === 'string' ? current.premiumExpiresAt : null;
+      const premiumExpiresAt = calculateNextPremiumExpiry(currentExpiresAt);
       await ref.set({
         ...current,
         hasPremium: true,
-        premiumExpiresAt: expiresAt,
+        premiumExpiresAt,
       });
       return;
     } catch (_) {}
   }
   const e = memoryStore.get(anonymousId) ?? defaultEntitlements();
+  const premiumExpiresAt = calculateNextPremiumExpiry(e.premiumExpiresAt);
   memoryStore.set(anonymousId, {
     ...e,
     hasPremium: true,
-    premiumExpiresAt: expiresAt,
+    premiumExpiresAt,
   });
 }
