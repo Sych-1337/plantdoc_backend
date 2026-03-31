@@ -97,7 +97,10 @@ export async function setCoffeePurchased(anonymousId: string): Promise<void> {
   });
 }
 
-export async function setPremiumPurchased(anonymousId: string): Promise<void> {
+export async function setPremiumPurchased(
+  anonymousId: string,
+  verifiedExpiresAt?: string | null,
+): Promise<void> {
   const ref = entitlementsRef(anonymousId);
   if (ref) {
     try {
@@ -105,7 +108,10 @@ export async function setPremiumPurchased(anonymousId: string): Promise<void> {
       const current = snapshot.val() || {};
       const currentExpiresAt =
         typeof current.premiumExpiresAt === 'string' ? current.premiumExpiresAt : null;
-      const premiumExpiresAt = calculateNextPremiumExpiry(currentExpiresAt);
+      const premiumExpiresAt =
+        verifiedExpiresAt && !Number.isNaN(new Date(verifiedExpiresAt).getTime())
+          ? verifiedExpiresAt
+          : calculateNextPremiumExpiry(currentExpiresAt);
       await ref.set({
         ...current,
         hasPremium: true,
@@ -115,7 +121,10 @@ export async function setPremiumPurchased(anonymousId: string): Promise<void> {
     } catch (_) {}
   }
   const e = memoryStore.get(anonymousId) ?? defaultEntitlements();
-  const premiumExpiresAt = calculateNextPremiumExpiry(e.premiumExpiresAt);
+  const premiumExpiresAt =
+    verifiedExpiresAt && !Number.isNaN(new Date(verifiedExpiresAt).getTime())
+      ? verifiedExpiresAt
+      : calculateNextPremiumExpiry(e.premiumExpiresAt);
   memoryStore.set(anonymousId, {
     ...e,
     hasPremium: true,
