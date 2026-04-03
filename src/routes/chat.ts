@@ -47,7 +47,7 @@ chatRouter.post('/', async (req, res) => {
       content:
         'I could not process your request due to a technical issue. Please try again in a moment or rephrase your question about the plant.',
     };
-    return res.status(200).json({ message: fallback });
+    return res.status(200).json({ message: fallback, usage: chatResult.usage });
   }
 });
 

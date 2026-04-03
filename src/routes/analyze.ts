@@ -19,7 +19,7 @@ analyzeRouter.post('/', upload.array('images', MAX_IMAGES), async (req, res) => 
   const scanResult = await consume(anonymousId, 'scan');
   if (!scanResult.allowed) {
     return res.status(429).json({
-      error: 'Daily scan limit reached',
+      error: 'Scan limit reached',
       serverDate: scanResult.serverDate,
       serverMonth: scanResult.serverMonth,
       usage: scanResult.usage,
@@ -87,7 +87,7 @@ analyzeRouter.post('/', upload.array('images', MAX_IMAGES), async (req, res) => 
       },
     };
 
-    return res.status(200).json(fallback);
+    return res.status(200).json({ ...fallback, usage: scanResult.usage });
   }
 });
 

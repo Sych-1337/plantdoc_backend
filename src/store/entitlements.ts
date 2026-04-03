@@ -29,7 +29,7 @@ function normalize(e: Entitlements): Entitlements {
   return {
     hasPremium: e.hasPremium && (e.premiumExpiresAt == null || e.premiumExpiresAt > now),
     premiumExpiresAt: e.premiumExpiresAt,
-    hasCoffee: e.hasCoffee,
+    hasCoffee: e.hasCoffee && (e.coffeeAdsFreeUntil == null || e.coffeeAdsFreeUntil > now),
     coffeeAdsFreeUntil: e.coffeeAdsFreeUntil,
   };
 }

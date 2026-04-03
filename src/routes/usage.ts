@@ -19,8 +19,15 @@ usageRouter.get('/', async (req, res) => {
     return res.status(400).json({ error: 'Missing or invalid X-Anonymous-Id header' });
   }
   try {
-    const { serverDate, serverMonth, usage } = await getUsage(anonymousId);
-    return res.json({ serverDate, serverMonth, usage });
+    const { serverDate, serverMonth, freeUsagePeriodId, freeUsagePeriodEndsAt, usage } =
+      await getUsage(anonymousId);
+    return res.json({
+      serverDate,
+      serverMonth,
+      freeUsagePeriodId,
+      freeUsagePeriodEndsAt,
+      usage,
+    });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to get usage' });
   }
