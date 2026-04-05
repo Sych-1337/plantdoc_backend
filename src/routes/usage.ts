@@ -63,7 +63,7 @@ usageRouter.post('/consume', async (req, res) => {
   }
 });
 
-/** POST /usage/rewarded — add bonus from watching a reward ad (2 scans, 1 quiz, 5 chat). */
+/** POST /usage/rewarded — add bonus from watching a reward ad (2 scans, 1 quiz, 3 chat). */
 usageRouter.post('/rewarded', async (req, res) => {
   const anonymousId = getAnonymousId(req);
   if (!anonymousId) {

@@ -16,6 +16,9 @@ import {
 const ANONYMOUS_ID_HEADER = 'x-anonymous-id';
 const REQUIRE_ANDROID_PURCHASE_VERIFICATION =
   process.env.REQUIRE_ANDROID_PURCHASE_VERIFICATION === 'true';
+/** When true, POST /entitlements/* always requires a verified Android or iOS purchase (recommended for production). */
+const REQUIRE_PURCHASE_VERIFICATION =
+  process.env.REQUIRE_PURCHASE_VERIFICATION === 'true';
 
 export const entitlementsRouter = express.Router();
 type PurchasePayload = {
@@ -23,6 +26,7 @@ type PurchasePayload = {
   productId?: string;
   purchaseToken?: string;
   receiptData?: string;
+  expiresAt?: string;
 };
 
 /** GET /entitlements — returns entitlements for the anonymous id in header. No PII. */
@@ -53,7 +57,29 @@ entitlementsRouter.post('/coffee', async (req, res) => {
   const body = (req.body ?? {}) as PurchasePayload;
   const isAndroid = body.platform === 'android';
   const isIos = body.platform === 'ios';
-  if (isAndroid || REQUIRE_ANDROID_PURCHASE_VERIFICATION) {
+
+  if (REQUIRE_PURCHASE_VERIFICATION) {
+    if (!isAndroid && !isIos) {
+      return res.status(400).json({ error: 'Missing platform (android or ios)' });
+    }
+    if (isAndroid) {
+      if (!body.purchaseToken || !body.productId) {
+        return res.status(400).json({ error: 'Missing Android purchaseToken/productId' });
+      }
+      const verification = await verifyAndroidCoffeePurchase(body.productId, body.purchaseToken);
+      if (!verification.ok) {
+        return res.status(403).json({ error: verification.reason });
+      }
+    } else {
+      if (!body.receiptData || !body.productId) {
+        return res.status(400).json({ error: 'Missing iOS receiptData/productId' });
+      }
+      const verification = await verifyAppleCoffeePurchase(body.productId, body.receiptData);
+      if (!verification.ok) {
+        return res.status(403).json({ error: verification.reason });
+      }
+    }
+  } else if (isAndroid || REQUIRE_ANDROID_PURCHASE_VERIFICATION) {
     if (!body.purchaseToken || !body.productId) {
       return res.status(400).json({ error: 'Missing Android purchaseToken/productId' });
     }
@@ -70,6 +96,7 @@ entitlementsRouter.post('/coffee', async (req, res) => {
       return res.status(403).json({ error: verification.reason });
     }
   }
+
   try {
     await setCoffeePurchased(anonymousId);
     const e = await getEntitlements(anonymousId);
@@ -94,7 +121,31 @@ entitlementsRouter.post('/premium', async (req, res) => {
   const isAndroid = body.platform === 'android';
   const isIos = body.platform === 'ios';
   let verifiedExpiresAt: string | null = null;
-  if (isAndroid || REQUIRE_ANDROID_PURCHASE_VERIFICATION) {
+
+  if (REQUIRE_PURCHASE_VERIFICATION) {
+    if (!isAndroid && !isIos) {
+      return res.status(400).json({ error: 'Missing platform (android or ios)' });
+    }
+    if (isAndroid) {
+      if (!body.purchaseToken || !body.productId) {
+        return res.status(400).json({ error: 'Missing Android purchaseToken/productId' });
+      }
+      const verification = await verifyAndroidPremiumPurchase(body.productId, body.purchaseToken);
+      if (!verification.ok) {
+        return res.status(403).json({ error: verification.reason });
+      }
+      verifiedExpiresAt = verification.premiumExpiresAt ?? null;
+    } else {
+      if (!body.receiptData || !body.productId) {
+        return res.status(400).json({ error: 'Missing iOS receiptData/productId' });
+      }
+      const verification = await verifyApplePremiumPurchase(body.productId, body.receiptData);
+      if (!verification.ok) {
+        return res.status(403).json({ error: verification.reason });
+      }
+      verifiedExpiresAt = verification.premiumExpiresAt ?? null;
+    }
+  } else if (isAndroid || REQUIRE_ANDROID_PURCHASE_VERIFICATION) {
     if (!body.purchaseToken || !body.productId) {
       return res.status(400).json({ error: 'Missing Android purchaseToken/productId' });
     }
@@ -112,7 +163,11 @@ entitlementsRouter.post('/premium', async (req, res) => {
       return res.status(403).json({ error: verification.reason });
     }
     verifiedExpiresAt = verification.premiumExpiresAt ?? null;
+  } else {
+    verifiedExpiresAt =
+      typeof body.expiresAt === 'string' && body.expiresAt ? body.expiresAt : null;
   }
+
   try {
     await setPremiumPurchased(anonymousId, verifiedExpiresAt);
     const e = await getEntitlements(anonymousId);

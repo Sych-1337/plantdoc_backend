@@ -9,7 +9,8 @@ import { usageRef } from '../services/firebase';
 
 /** Free plan: per week (not per day). */
 const SCANS_FREE = 20;
-const SCANS_COFFEE = 10;
+/** Coffee tier: weekly scans before bonus pools (aligned with app UI). */
+const SCANS_COFFEE = 50;
 const SCANS_PREMIUM_MONTH = 900;
 const QUIZ_FREE = 1;
 const QUIZ_COFFEE = 2;
@@ -225,7 +226,7 @@ export async function addRewardedBonus(anonymousId: string): Promise<UsageState>
   const next = { ...usage };
   next.rewardedBonusScans = (next.rewardedBonusScans ?? 0) + 2;
   next.rewardedBonusQuiz = (next.rewardedBonusQuiz ?? 0) + 1;
-  next.rewardedBonusChat = (next.rewardedBonusChat ?? 0) + 5;
+  next.rewardedBonusChat = (next.rewardedBonusChat ?? 0) + 3;
   await setUsage(anonymousId, next);
   return next;
 }

@@ -1,14 +1,17 @@
 import { google } from 'googleapis';
 
 const ANDROID_PUBLISHER_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
+
 const PREMIUM_PRODUCT_ID = 'plant_doctor_premium_monthly';
-const COFFEE_PRODUCT_ID = 'plant-doctor-coffee';
+const COFFEE_PRODUCT_ID = 'plant_doctor_coffee';
 
 type VerifyResult = { ok: true; premiumExpiresAt?: string | null } | { ok: false; reason: string };
 
 function getPackageName(): string {
   const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME;
-  if (!packageName) throw new Error('GOOGLE_PLAY_PACKAGE_NAME is not set');
+  if (!packageName) {
+    throw new Error('GOOGLE_PLAY_PACKAGE_NAME is not set');
+  }
   return packageName;
 }
 
@@ -30,10 +33,11 @@ function getCredentialsFromEnv():
   };
 }
 
-function getPublisherClient() {
+async function getPublisherClient() {
+  const credentials = getCredentialsFromEnv();
   const auth = new google.auth.GoogleAuth({
     scopes: [ANDROID_PUBLISHER_SCOPE],
-    credentials: getCredentialsFromEnv(),
+    credentials,
   });
   return google.androidpublisher({
     version: 'v3',
@@ -49,8 +53,8 @@ export async function verifyAndroidPremiumPurchase(
     return { ok: false, reason: 'Unexpected premium productId' };
   }
   try {
-    const publisher = getPublisherClient();
     const packageName = getPackageName();
+    const publisher = await getPublisherClient();
     const response = await publisher.purchases.subscriptions.get({
       packageName,
       subscriptionId: productId,
@@ -64,8 +68,9 @@ export async function verifyAndroidPremiumPurchase(
     if (expiryTimeMillis <= Date.now()) {
       return { ok: false, reason: 'Subscription is expired' };
     }
-    return { ok: true, premiumExpiresAt: new Date(expiryTimeMillis).toISOString() };
-  } catch {
+    const premiumExpiresAt = new Date(expiryTimeMillis).toISOString();
+    return { ok: true, premiumExpiresAt };
+  } catch (error) {
     return { ok: false, reason: 'Google Play premium verification failed' };
   }
 }
@@ -78,18 +83,19 @@ export async function verifyAndroidCoffeePurchase(
     return { ok: false, reason: 'Unexpected coffee productId' };
   }
   try {
-    const publisher = getPublisherClient();
     const packageName = getPackageName();
+    const publisher = await getPublisherClient();
     const response = await publisher.purchases.products.get({
       packageName,
       productId,
       token: purchaseToken,
     });
-    if (response.data.purchaseState !== 0) {
+    const body = response.data;
+    if (body.purchaseState !== 0) {
       return { ok: false, reason: 'Coffee purchase is not completed' };
     }
     return { ok: true };
-  } catch {
+  } catch (error) {
     return { ok: false, reason: 'Google Play coffee verification failed' };
   }
 }

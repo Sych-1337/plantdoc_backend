@@ -3,7 +3,7 @@ import https from 'node:https';
 const APPLE_VERIFY_RECEIPT_URL = 'https://buy.itunes.apple.com/verifyReceipt';
 const APPLE_VERIFY_RECEIPT_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
 const PREMIUM_PRODUCT_ID = 'plant_doctor_premium_monthly';
-const COFFEE_PRODUCT_ID = 'plant-doctor-coffee';
+const COFFEE_PRODUCT_ID = 'plant_doctor_coffee';
 
 type VerifyResult = { ok: true; premiumExpiresAt?: string | null } | { ok: false; reason: string };
 
